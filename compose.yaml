@@ -1,0 +1,60 @@
+version: "3"
+x-registry-auth:
+  # Add the API version here
+  serveraddress: https://index.docker.io/v1/
+services:
+  keycloak:
+    image: jboss/keycloak
+    environment:
+      - KEYCLOAK_USER=admin
+      - KEYCLOAK_PASSWORD=admin
+    ports:
+      - "8180:8080"
+    command:
+      ["-b", "0.0.0.0"]
+
+  spring-boot:
+    image: mon-application-spring-boot:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mariadb
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/DeliveryManagementDB?autoReconnect=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+    networks:
+      - my_network-test
+  mariadb:
+    image: 'mariadb:latest'
+    environment:
+      - 'MARIADB_DATABASE=DeliveryManagementDB'
+      - 'MARIADB_ROOT_PASSWORD=root'
+    volumes:
+      - './mariadb:/docker-entrypoint-initdb.d'
+    networks:
+      - my_network-test
+
+  create-table:
+    image: mariadb:latest
+    command: [ "--init-file", "/docker-entrypoint-initdb.d/script.sql" ]
+    depends_on:
+      - mariadb
+    volumes:
+      - './mariadb:/docker-entrypoint-initdb.d'  # Utilisez "./mariadb" pour indiquer le chemin relatif
+    environment:
+      - 'MARIADB_ROOT_PASSWORD=root'  # Définissez le mot de passe root ici
+    networks:
+      - my_network-test
+
+  frontend:
+    build:
+      context: ./front  # Chemin vers le répertoire front-end
+    ports:
+      - "4200:4200"
+    networks:
+      - my_network-test
+
+networks:
+  my_network-test:
+    driver: bridge
